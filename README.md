@@ -1,4 +1,4 @@
-# 🔍 GitHub Repository Analyzer
+# GitHub Repository Analyzer
 
 > **Turn any public GitHub repo into a data-rich insight dashboard.**
 
@@ -118,7 +118,7 @@ Then poll for results:
 curl http://localhost:8000/api/v1/analyses/{analysis_id}
 ```
 
-Or just use the web UI — it's prettier. 🎨
+Or just use the web UI — it's prettier.
 
 ## Project Structure
 
@@ -248,7 +248,7 @@ pytest tests/unit -v
 pytest tests/ -v --cov=app
 ```
 
-## 🧠 Key Architectural Decisions
+## Key Architectural Decisions
 
 1. **Clean Architecture** — domain logic is isolated from frameworks. Swap FastAPI for Flask or SQLAlchemy for another ORM without touching business rules.
 
