@@ -1,86 +1,97 @@
-# GitHub Repository Analyzer
+# 🔍 GitHub Repository Analyzer
 
-A production-ready full-stack application that analyzes any public GitHub repository, providing deep code metrics, contributor analytics, and AI-powered insights via Google Gemini.
+> **Turn any public GitHub repo into a data-rich insight dashboard.**
+
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/React-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Celery](https://img.shields.io/badge/Celery-37814A?logo=celery&logoColor=white)](https://docs.celeryq.dev/)
+[![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+A production-ready, full-stack analyzer for GitHub repositories. It fetches commits, contributors, and language data, runs background analysis with Celery, caches aggressively with Redis, persists results in PostgreSQL, and surfaces everything through a clean React dashboard — optionally enriched with AI insights from Google Gemini.
+
+## What It Does
+
+Paste any public repo URL. Within seconds, you get:
+
+| Feature | Description |
+|--------|-------------|
+| **Code Metrics** | Total commits, commit frequency, churn, average commit size, time between commits |
+| **Contributor Analytics** | Top contributors, bus factor risk score, commit distribution |
+| **Language Breakdown** | Visual pie chart of repository languages by bytes |
+| **AI Insights** | Project summary, README quality score, tech stack detection, architecture analysis |
+| **Async & Cached** | Redis-backed caching for GitHub data, async database calls, background job processing |
 
 ## Architecture
 
-```
-┌─────────────┐     ┌──────────────┐     ┌─────────────┐
-│   React UI  │────▶│  FastAPI API  │────▶│  PostgreSQL  │
-│  (Vite/TS)  │     │              │     │             │
-└─────────────┘     └──────┬───────┘     └─────────────┘
-                           │
-                    ┌──────▼───────┐     ┌─────────────┐
-                    │ Celery Worker │────▶│    Redis   │
-                    │              │     │ Cache+Broker │
-                    └──────┬───────┘     └─────────────┘
-                           │
-                    ┌──────▼───────┐     ┌─────────────┐
-                    │ GitHub API   │     │ Gemini AI    │
-                    └──────────────┘     └─────────────┘
+```mermaid
+flowchart LR
+    A[React UI<br/>Vite + TypeScript + Tailwind] -->|HTTP / SSE| B[FastAPI API]
+    B --> C[PostgreSQL]
+    B --> D[Redis Cache]
+    B --> E[Celery Worker]
+    E --> D
+    E --> F[GitHub API]
+    E --> G[Google Gemini]
 ```
 
 ### Clean Architecture Layers
 
+```
+┌─────────────────────────────────────┐
+│  API Layer (FastAPI, schemas, DI)   │
+├─────────────────────────────────────┤
+│  Use Cases (orchestration)          │
+├─────────────────────────────────────┤
+│  Domain (entities, pure logic)      │
+├─────────────────────────────────────┤
+│  Infrastructure (DB, Redis, HTTP)   │
+└─────────────────────────────────────┘
+```
+
 | Layer | Directory | Responsibility |
 |---|---|---|
-| **Domain** | `app/domain/` | Entities, repository interfaces, pure business logic |
-| **Use Cases** | `app/usecases/` | Application orchestration (no framework deps) |
-| **Infrastructure** | `app/infrastructure/` | DB, Redis, GitHub client, Celery tasks |
-| **API** | `app/api/` | FastAPI routes, schemas, middleware |
+| **Domain** | `backend/app/domain/` | Entities, repository interfaces, pure business logic |
+| **Use Cases** | `backend/app/usecases/` | Application orchestration with zero framework dependencies |
+| **Infrastructure** | `backend/app/infrastructure/` | Database, Redis, GitHub client, Celery tasks |
+| **API** | `backend/app/api/` | FastAPI routes, Pydantic schemas, middleware |
 
-**Dependency rule**: outer layers depend inward. Domain depends on nothing.
-
-## Features
-
-### Code Metrics
-- Total commits, average commit size
-- Commits per day / month
-- Code churn (additions/deletions)
-- Average time between commits
-- Bus factor calculation
-- Top contributors ranking
-- Language distribution
-
-### Visualizations (React Frontend)
-- Language pie chart (Recharts)
-- Commit frequency bar chart
-- Contributor ranking with progress bars
-- Metrics dashboard cards
-
-### AI Analysis (Gemini)
-- Project summary generation
-- README quality scoring (0-10)
-- Tech stack detection
-- Architecture analysis
+> **Dependency rule:** outer layers depend inward. The domain layer depends on nothing.
 
 ## Quick Start
 
 ### Prerequisites
-- Docker & Docker Compose
-- GitHub personal access token (optional, increases rate limit)
-- Gemini API key (optional, enables AI features)
+
+- [Docker](https://docs.docker.com/get-docker/) & [Docker Compose](https://docs.docker.com/compose/)
+- (Optional) [GitHub Personal Access Token](https://github.com/settings/tokens) — higher rate limits
+- (Optional) [Google Gemini API Key](https://ai.google.dev/) — enables AI insights
 
 ### 1. Clone & Configure
 
 ```bash
-cd backend
-cp .env
-# Edit .env with your API keys
+git clone <repo-url>
+cd github_repo_analyzer/backend
+cp .env.example .env
+# Edit .env and add GITHUB_TOKEN and/or GEMINI_API_KEY
 ```
 
-### 2. Run with Docker Compose
+### 2. Run Everything
 
 ```bash
+cd ..
 docker compose up --build
 ```
 
-Services:
-- **API**: http://localhost:8000
-- **Swagger docs**: http://localhost:8000/docs
-- **Frontend**: http://localhost:3000
-- **PostgreSQL**: localhost:5432
-- **Redis**: localhost:6379
+Services will be available at:
+
+| Service | URL |
+|---|---|
+| Frontend | http://localhost:3000 |
+| API | http://localhost:8000 |
+| Swagger UI | http://localhost:8000/docs |
+| PostgreSQL | localhost:5432 |
+| Redis | localhost:6379 |
 
 ### 3. Analyze a Repository
 
@@ -91,149 +102,177 @@ curl -X POST http://localhost:8000/api/v1/analyses/analyze \
 ```
 
 Response:
+
 ```json
 {
-  "analysis_id": "uuid-here",
-  "repository_id": "uuid-here",
+  "analysis_id": "a1b2c3d4...",
+  "repository_id": "e5f6g7h8...",
   "status": "pending",
   "message": "Analysis queued. Poll GET /analyses/{analysis_id} for results."
 }
 ```
 
 Then poll for results:
+
 ```bash
 curl http://localhost:8000/api/v1/analyses/{analysis_id}
 ```
 
+Or just use the web UI — it's prettier. 🎨
+
 ## Project Structure
 
 ```
-backend/
-├── app/
-│   ├── api/                    # FastAPI layer
-│   │   ├── routes/
-│   │   │   ├── analysis.py     # POST /analyze, GET /analyses/{id}
-│   │   │   └── health.py       # GET /health
-│   │   ├── schemas.py          # Pydantic request/response models
-│   │   ├── dependencies.py     # DI composition root
-│   │   └── rate_limit.py       # slowapi rate limiter
-│   ├── core/                   # Config, logging, exceptions
-│   │   ├── config.py           # pydantic-settings
-│   │   ├── logging.py          # structlog (JSON in prod)
-│   │   └── exceptions.py       # Exception hierarchy
-│   ├── domain/                 # Pure business logic
-│   │   ├── entities.py         # User, Repository, Analysis, etc.
-│   │   ├── repositories.py     # Abstract repository interfaces
-│   │   └── services.py         # Bus factor, churn, aggregation
-│   ├── infrastructure/         # External concerns
-│   │   ├── cache/
-│   │   │   └── redis_cache.py  # Redis cache + CachedGitHubClient
-│   │   ├── database/
-│   │   │   ├── models.py       # SQLAlchemy ORM models
-│   │   │   ├── session.py      # Async engine & session
-│   │   │   └── repositories.py # Concrete repo implementations
-│   │   ├── external/
-│   │   │   ├── github_client.py # GitHub REST API client
-│   │   │   └── gemini_client.py # Gemini AI client
-│   │   └── jobs/
-│   │       ├── celery_app.py   # Celery instance config
-│   │       └── celery_tasks.py # Background analysis task
-│   ├── usecases/               # Application services
-│   │   ├── analyze_repository.py
-│   │   └── get_analysis.py
-│   └── main.py                 # FastAPI app factory
-├── alembic/                    # Database migrations
-├── tests/
-│   ├── unit/                   # Pure logic tests (fast)
-│   └── integration/            # API tests (needs DB)
-├── Dockerfile
-├── pyproject.toml
-└── alembic.ini
-
-frontend/
-├── src/
-│   ├── api/client.ts           # Axios API client + types
-│   ├── components/
-│   │   ├── MetricsGrid.tsx
-│   │   ├── LanguagePieChart.tsx
-│   │   ├── CommitFrequencyChart.tsx
-│   │   ├── ContributorRanking.tsx
-│   │   └── AIInsightsPanel.tsx
-│   └── pages/
-│       ├── HomePage.tsx        # Search form
-│       └── AnalysisPage.tsx    # Results dashboard
-├── Dockerfile
-└── package.json
+github_repo_analyzer/
+├── backend/
+│   ├── app/
+│   │   ├── api/                     # FastAPI layer
+│   │   │   ├── routes/
+│   │   │   │   ├── analysis.py      # POST /analyze, GET /analyses/{id}
+│   │   │   │   └── health.py        # GET /health
+│   │   │   ├── schemas.py           # Pydantic request/response models
+│   │   │   ├── dependencies.py      # DI composition root
+│   │   │   └── rate_limit.py        # slowapi rate limiter
+│   │   ├── core/                    # Config, logging, exceptions
+│   │   ├── domain/                  # Pure business logic
+│   │   ├── infrastructure/          # External concerns
+│   │   │   ├── cache/               # Redis cache + CachedGitHubClient
+│   │   │   ├── database/            # SQLAlchemy models, async session, repos
+│   │   │   ├── external/            # GitHub & Gemini API clients
+│   │   │   └── jobs/                # Celery app & background tasks
+│   │   ├── usecases/                # Application services
+│   │   └── main.py                  # FastAPI app factory
+│   ├── alembic/                     # Database migrations
+│   ├── tests/
+│   │   ├── unit/                    # Fast pure-logic tests
+│   │   └── integration/             # API tests (requires DB)
+│   ├── Dockerfile
+│   └── pyproject.toml
+├── frontend/
+│   ├── src/
+│   │   ├── api/client.ts            # Axios client with types
+│   │   ├── components/              # Charts, metrics, AI panel
+│   │   └── pages/                   # Home & analysis views
+│   ├── Dockerfile
+│   └── package.json
+├── docker-compose.yml
+└── README.md
 ```
 
 ## Database Schema
 
-```
-users ──────────────┐
-                    │
-repositories ───────┤
-  │                 │
-  ▼                 │
-analyses ◄──────────┘
-  │
-  ├──▶ commits_stats
-  └──▶ contributors
+```mermaid
+erDiagram
+    users ||--o{ repositories : owns
+    repositories ||--o{ analyses : has
+    analyses ||--o| commits_stats : produces
+    analyses ||--o| contributors : produces
+
+    users {
+        uuid id PK
+        string username
+        string email
+    }
+
+    repositories {
+        uuid id PK
+        string full_name
+        string owner
+        string name
+        json language_distribution
+    }
+
+    analyses {
+        uuid id PK
+        uuid repository_id FK
+        uuid user_id FK
+        string status
+        json detected_tech_stack
+        timestamp created_at
+        timestamp completed_at
+    }
+
+    commits_stats {
+        uuid id PK
+        uuid analysis_id FK
+        int total_commits
+        int additions
+        int deletions
+    }
+
+    contributors {
+        uuid id PK
+        uuid analysis_id FK
+        string username
+        int commits
+    }
 ```
 
-Key design:
-- **UUIDs** everywhere — safe for distributed worker ID generation
+Design highlights:
+
+- **UUIDs everywhere** — safe for distributed Celery worker ID generation
 - **CASCADE deletes** from repository → analyses → stats
-- **Indexes** on foreign keys, status, full_name
-- **JSON columns** for language_distribution and detected_tech_stack
+- **Indexes** on foreign keys, status, and `full_name`
+- **JSON columns** for `language_distribution` and `detected_tech_stack`
 
 ## API Endpoints
 
 | Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/api/v1/analyses/analyze` | Trigger analysis (returns 202) |
+|---|---|---|
+| `POST` | `/api/v1/analyses/analyze` | Trigger analysis (returns `202 Accepted`) |
 | `GET` | `/api/v1/analyses/{id}` | Get analysis detail |
-| `GET` | `/api/v1/analyses/?repository_id=` | List analyses (paginated) |
+| `GET` | `/api/v1/analyses/` | List analyses with optional `repository_id` filter |
 | `GET` | `/api/v1/health` | Health check |
 
 ## Configuration
 
-All settings via environment variables (see `.env.example`):
+All settings are driven by environment variables. Copy `backend/.env.example` to `backend/.env` and adjust:
 
 | Variable | Description | Default |
-|----------|-------------|---------|
-| `GITHUB_TOKEN` | GitHub PAT for higher rate limits | _(empty)_ |
-| `GEMINI_API_KEY` | Google Gemini API key | _(empty)_ |
-| `POSTGRES_*` | Database connection | localhost:5432 |
-| `REDIS_URL` | Redis for cache | redis://localhost:6379/0 |
-| `RATE_LIMIT_PER_MINUTE` | API rate limit per IP | 30 |
+|---|---|---|
+| `GITHUB_TOKEN` | GitHub PAT for higher rate limits | *(empty)* |
+| `GEMINI_API_KEY` | Google Gemini API key | *(empty)* |
+| `POSTGRES_*` | Database connection params | localhost:5432 |
+| `REDIS_URL` | Redis cache connection | `redis://localhost:6379/0` |
+| `RATE_LIMIT_PER_MINUTE` | API rate limit per IP | `30` |
 
 ## Running Tests
 
 ```bash
-# Unit tests (no external deps needed)
 cd backend
+
+# Unit tests — no external dependencies
 pytest tests/unit -v
 
-# Full suite (needs Postgres + Redis)
+# Full suite — needs Postgres + Redis
 pytest tests/ -v --cov=app
 ```
 
-## Key Architectural Decisions
+## 🧠 Key Architectural Decisions
 
-1. **Clean Architecture** — domain logic is isolated from frameworks; you could swap FastAPI for Flask or SQLAlchemy for another ORM without touching business rules.
+1. **Clean Architecture** — domain logic is isolated from frameworks. Swap FastAPI for Flask or SQLAlchemy for another ORM without touching business rules.
 
-2. **Celery for background jobs** — GitHub API pagination + Gemini AI calls take 30-120s. Celery with `acks_late=True` ensures work isn't lost if a worker crashes.
+2. **Celery for Background Jobs** — GitHub pagination + Gemini calls take 30–120s. Celery with `acks_late=True` ensures work survives worker crashes.
 
-3. **Redis dual-use** — cache layer (GitHub responses) and Celery broker share Redis but use different DB numbers (0, 1, 2) for isolation.
+3. **Redis Multi-Role** — shared Redis instance with separate logical databases for cache, Celery broker, and result backend.
 
-4. **CachedGitHubClient (Proxy Pattern)** — transparently wraps the raw client; callers don't know caching exists. Immutable data (commit details) cached 24h; mutable data (repo metadata) cached 1h.
+4. **CachedGitHubClient (Proxy Pattern)** — transparently wraps the raw GitHub client. Immutable data is cached for 24h; mutable metadata for 1h.
 
-5. **Bus Factor algorithm** — sorts contributors by commits descending, accumulates until ≥80% threshold. A bus factor of 1 is a red flag.
+5. **Bus Factor Algorithm** — sorts contributors by commits, accumulates until ≥80% threshold. A bus factor of 1 is a red flag. 
 
-6. **Async everything in FastAPI** — `asyncpg` + `httpx` + `redis.asyncio` keep the event loop free. Celery tasks use `asyncio.run()` as a bridge.
+6. **Async Everything** — `asyncpg` + `httpx` + `redis.asyncio` keep the FastAPI event loop free. Celery tasks bridge to async code with `asyncio.run()`.
 
-7. **Rate limiting** — `slowapi` with Redis backend, per-IP sliding window. The `/analyze` endpoint has a tighter 10/min limit.
+7. **Rate Limiting** — `slowapi` with Redis backend, per-IP sliding window. The `/analyze` endpoint has a tighter 10/min limit.
+
+
+## Contributing
+
+Contributions are welcome! Please open an issue first to discuss what you'd like to change, or submit a pull request with a clear description.
 
 ## License
 
-MIT
+This project is licensed under the MIT License — see [LICENSE](LICENSE) for details.
+
+---
+
+<p align="center">Built with ☕, 🐍, and ⚛️</p>
